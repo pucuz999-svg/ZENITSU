@@ -323,7 +323,7 @@ fun AppContent() {
                     )
                 }
                 val reason = if (isIndividuallyBlocked) {
-                    ownSession?.blockedReason.orEmpty()
+                    ownSession.blockedReason
                 } else {
                     appAccessConfig.maintenanceMessage
                 }

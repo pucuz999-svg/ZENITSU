@@ -31,8 +31,11 @@ jobs:
           set -euo pipefail
 
           SDK_DIR="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
-          if [ ! -d "$SDK_DIR" ] || [ ! -w "$SDK_DIR" ]; then
-            if [ -d "/usr/local/lib/android/sdk" ] && [ -w "/usr/local/lib/android/sdk" ]; then
+          can_write_sdk() {
+            [ -d "$1" ] && [ -w "$1" ] && mkdir -p "$1/licenses" 2>/dev/null && touch "$1/licenses/.ci_write_test" 2>/dev/null && rm -f "$1/licenses/.ci_write_test"
+          }
+          if ! can_write_sdk "$SDK_DIR"; then
+            if can_write_sdk "/usr/local/lib/android/sdk"; then
               SDK_DIR="/usr/local/lib/android/sdk"
             else
               SDK_DIR="$HOME/android-sdk"
@@ -114,7 +117,10 @@ jobs:
           fi
 
       - name: Build Debug APK
-        run: gradle :app:assembleDebug --no-daemon --stacktrace
+        run: |
+          gradle :app:assembleDebug --no-daemon --no-configuration-cache --stacktrace \
+            -Dorg.gradle.jvmargs="-Xmx2560m -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8" \
+            -Dorg.gradle.workers.max=2
 
       - name: Prepare stable APK filename
         run: |
