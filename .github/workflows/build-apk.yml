@@ -53,8 +53,8 @@ jobs:
             fi
           done
 
-          if [ -z "$SDKMANAGER" ]; then
-            echo "Installing Android command-line tools into $SDK_DIR..."
+          install_cmdline_tools() {
+            echo "Installing latest Android command-line tools into $SDK_DIR..."
             TMP_ZIP="$(mktemp /tmp/cmdline-tools-XXXXXX.zip)"
             TMP_EXTRACT="$(mktemp -d)"
             CMDLINE_URL="$(curl -fsSL https://developer.android.com/studio | grep -oE 'https://dl\.google\.com/android/repository/commandlinetools-linux-[0-9]+_latest\.zip' | head -n 1 || true)"
@@ -73,6 +73,31 @@ jobs:
             rm -rf "$TMP_ZIP" "$TMP_EXTRACT"
             SDKMANAGER="$SDK_DIR/cmdline-tools/latest/bin/sdkmanager"
             chmod +x "$SDKMANAGER"
+          }
+
+          if [ -z "$SDKMANAGER" ]; then
+            install_cmdline_tools
+          fi
+
+          install_sdk_packages() {
+            echo "Using sdkmanager: $SDKMANAGER (SDK root: $SDK_DIR)"
+            (yes || true) | "$SDKMANAGER" --sdk_root="$SDK_DIR" --licenses >/dev/null || true
+            "$SDKMANAGER" --sdk_root="$SDK_DIR" --install \
+              "platform-tools" \
+              "build-tools;36.0.0" \
+              "platforms;android-36.1" \
+              "platforms;android-36"
+          }
+
+          if ! install_sdk_packages || [ ! -f "$SDK_DIR/platforms/android-36.1/android.jar" ] || [ ! -d "$SDK_DIR/build-tools/36.0.0" ]; then
+            echo "Preinstalled sdkmanager failed or platform 36.1 is missing; refreshing command-line tools and retrying..."
+            install_cmdline_tools
+            install_sdk_packages
+          fi
+
+          if [ ! -f "$SDK_DIR/platforms/android-36.1/android.jar" ] || [ ! -d "$SDK_DIR/build-tools/36.0.0" ]; then
+            echo "Error: Required Android SDK packages (android-36.1 / build-tools 36.0.0) missing in $SDK_DIR"
+            exit 1
           fi
 
           export ANDROID_HOME="$SDK_DIR"
@@ -81,14 +106,7 @@ jobs:
           echo "ANDROID_SDK_ROOT=$SDK_DIR" >> "$GITHUB_ENV"
           echo "$SDK_DIR/platform-tools" >> "$GITHUB_PATH"
           echo "$(dirname "$SDKMANAGER")" >> "$GITHUB_PATH"
-
-          echo "Using sdkmanager: $SDKMANAGER (SDK root: $SDK_DIR)"
-          (yes || true) | "$SDKMANAGER" --sdk_root="$SDK_DIR" --licenses >/dev/null || true
-          "$SDKMANAGER" --sdk_root="$SDK_DIR" --install \
-            "platform-tools" \
-            "build-tools;36.0.0" \
-            "platforms;android-36.1" \
-            "platforms;android-36"
+          printf 'sdk.dir=%s\n' "$SDK_DIR" > local.properties
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -119,16 +137,17 @@ jobs:
       - name: Build Debug APK
         run: |
           gradle :app:assembleDebug --no-daemon --no-configuration-cache --stacktrace \
-            -Dorg.gradle.jvmargs="-Xmx2560m -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8" \
+            -Dorg.gradle.jvmargs="-Xmx3584m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8" \
             -Dorg.gradle.workers.max=2
 
-      - name: Prepare stable APK filename
+      - name: Verify & prepare stable APK filename
         run: |
           APK_SOURCE="app/build/outputs/apk/debug/app-debug.apk"
           if [ ! -f "$APK_SOURCE" ]; then
             echo "Error: Expected debug APK not found at $APK_SOURCE"
             exit 1
           fi
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$APK_SOURCE"
           mkdir -p release-assets
           cp "$APK_SOURCE" release-assets/Zenitsu_2.0-debug.apk
           ls -lh release-assets/Zenitsu_2.0-debug.apk
