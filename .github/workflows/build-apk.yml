@@ -137,8 +137,9 @@ jobs:
       - name: Build Debug APK
         run: |
           gradle :app:assembleDebug --no-daemon --no-configuration-cache --stacktrace \
-            -Dorg.gradle.jvmargs="-Xmx3584m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8" \
-            -Dorg.gradle.workers.max=2
+            -Dorg.gradle.jvmargs="-Xmx3072m -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8" \
+            -Dorg.gradle.workers.max=2 \
+            -Dorg.gradle.parallel=false
 
       - name: Verify & prepare stable APK filename
         run: |
