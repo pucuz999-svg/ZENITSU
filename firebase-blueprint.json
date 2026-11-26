@@ -1,0 +1,158 @@
+{
+  "entities": {
+    "AdminEntry": {
+      "title": "AdminEntry",
+      "description": "Authorized administrator identity document keyed by Firebase Auth UID.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Firebase Auth UID of the administrator matching the document ID."
+        },
+        "email": {
+          "type": "string",
+          "description": "Verified email address of the administrator."
+        },
+        "grantedBy": {
+          "type": "string",
+          "description": "Email or UID of the administrator who granted this role."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp set via FieldValue.serverTimestamp() on creation."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp set via FieldValue.serverTimestamp() on update."
+        }
+      },
+      "required": ["uid", "email", "grantedBy", "createdAt", "updatedAt"]
+    },
+    "AppAccessConfig": {
+      "title": "AppAccessConfig",
+      "description": "Global customer access policy controlled by administrators.",
+      "type": "object",
+      "properties": {
+        "customersAllowed": {
+          "type": "boolean",
+          "description": "Whether customer accounts are currently allowed to use the booster app."
+        },
+        "maintenanceMessage": {
+          "type": "string",
+          "description": "Message shown to customers when global access is paused."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp set via FieldValue.serverTimestamp() on creation."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp set via FieldValue.serverTimestamp() on update."
+        }
+      },
+      "required": ["customersAllowed", "maintenanceMessage", "createdAt", "updatedAt"]
+    },
+    "UserSession": {
+      "title": "UserSession",
+      "description": "Live user login, active screen presence, device telemetry summary, and admin-controlled access flag.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the user matching the document ID."
+        },
+        "displayName": {
+          "type": "string",
+          "description": "User display name from Google Sign-In."
+        },
+        "email": {
+          "type": "string",
+          "description": "User email address from Google Sign-In."
+        },
+        "loginMode": {
+          "type": "string",
+          "enum": ["ADMIN", "CUSTOMER"],
+          "description": "Portal selected at sign-in."
+        },
+        "role": {
+          "type": "string",
+          "enum": ["admin", "customer"],
+          "description": "Authoritative user role enforced by security rules."
+        },
+        "accessEnabled": {
+          "type": "boolean",
+          "description": "Admin-controlled flag enabling or suspending user access to the app."
+        },
+        "blockedReason": {
+          "type": "string",
+          "description": "Optional reason provided by admin when accessEnabled is false."
+        },
+        "sessionActive": {
+          "type": "boolean",
+          "description": "True when the user currently has an active app session."
+        },
+        "currentScreen": {
+          "type": "string",
+          "description": "Current booster screen or status label."
+        },
+        "deviceModel": {
+          "type": "string",
+          "description": "Hardware device manufacturer and model."
+        },
+        "activePresetName": {
+          "type": "string",
+          "description": "Currently active sensitivity or FPS preset summary."
+        },
+        "lastActiveAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of latest heartbeat or navigation."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp set via FieldValue.serverTimestamp() on creation."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp set via FieldValue.serverTimestamp() on update."
+        }
+      },
+      "required": [
+        "userId",
+        "displayName",
+        "email",
+        "loginMode",
+        "role",
+        "accessEnabled",
+        "blockedReason",
+        "sessionActive",
+        "currentScreen",
+        "deviceModel",
+        "activePresetName",
+        "lastActiveAt",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/admins/{adminUid}": {
+      "schema": { "$ref": "#/entities/AdminEntry" },
+      "description": "Registry of additional admin accounts granted by an existing admin."
+    },
+    "/app_config/{configId}": {
+      "schema": { "$ref": "#/entities/AppAccessConfig" },
+      "description": "Global application access control policy at /app_config/global."
+    },
+    "/user_sessions/{userId}": {
+      "schema": { "$ref": "#/entities/UserSession" },
+      "description": "Authenticated user session telemetry, active status, and admin access control."
+    }
+  }
+}

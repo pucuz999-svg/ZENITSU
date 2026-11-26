@@ -1,0 +1,177 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isBootstrapAdmin() {
+      return isSignedIn() &&
+             request.auth.token.email_verified == true &&
+             request.auth.token.email == 'pucuz999@gmail.com';
+    }
+
+    function isAdmin() {
+      return isBootstrapAdmin() ||
+             (isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)));
+    }
+
+    function isValidAdminEntry(data) {
+      return data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 &&
+             data.email is string && data.email.size() >= 3 && data.email.size() <= 160 &&
+             data.grantedBy is string && data.grantedBy.size() >= 1 && data.grantedBy.size() <= 160;
+    }
+
+    function isValidAppConfig(data) {
+      return data.customersAllowed is bool &&
+             data.maintenanceMessage is string && data.maintenanceMessage.size() <= 240;
+    }
+
+    function isValidUserSession(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 80 &&
+             data.email is string && data.email.size() >= 3 && data.email.size() <= 160 &&
+             (data.loginMode == 'ADMIN' || data.loginMode == 'CUSTOMER') &&
+             (data.role == 'admin' || data.role == 'customer') &&
+             data.accessEnabled is bool &&
+             data.blockedReason is string && data.blockedReason.size() <= 200 &&
+             data.sessionActive is bool &&
+             data.currentScreen is string && data.currentScreen.size() >= 1 && data.currentScreen.size() <= 40 &&
+             data.deviceModel is string && data.deviceModel.size() >= 1 && data.deviceModel.size() <= 80 &&
+             data.activePresetName is string && data.activePresetName.size() <= 100;
+    }
+
+    match /admins/{adminUid} {
+      allow get: if isSignedIn() && isValidId(adminUid) && (request.auth.uid == adminUid || isAdmin());
+      allow list: if isAdmin();
+
+      allow create: if isAdmin() &&
+                       isValidId(adminUid) &&
+                       incoming().keys().hasAll(['uid', 'email', 'grantedBy', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['uid', 'email', 'grantedBy', 'createdAt', 'updatedAt']) &&
+                       incoming().uid == adminUid &&
+                       isValidAdminEntry(incoming()) &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time;
+
+      allow update: if isAdmin() &&
+                       isValidId(adminUid) &&
+                       isValidAdminEntry(incoming()) &&
+                       incoming().uid == existing().uid &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['email', 'grantedBy', 'updatedAt']);
+
+      allow delete: if isAdmin() && isValidId(adminUid) && request.auth.uid != adminUid;
+    }
+
+    match /app_config/{configId} {
+      allow get: if isSignedIn() && configId == 'global';
+      allow list: if false;
+
+      allow create: if isAdmin() &&
+                       configId == 'global' &&
+                       incoming().keys().hasAll(['customersAllowed', 'maintenanceMessage', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['customersAllowed', 'maintenanceMessage', 'createdAt', 'updatedAt']) &&
+                       isValidAppConfig(incoming()) &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time;
+
+      allow update: if isAdmin() &&
+                       configId == 'global' &&
+                       isValidAppConfig(incoming()) &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['customersAllowed', 'maintenanceMessage', 'updatedAt']);
+
+      allow delete: if false;
+    }
+
+    match /user_sessions/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && (request.auth.uid == userId || isAdmin());
+      allow list: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+
+      allow create: if isSignedIn() &&
+                       isValidId(userId) &&
+                       incoming().keys().hasAll([
+                         'userId', 'displayName', 'email', 'loginMode', 'role',
+                         'accessEnabled', 'blockedReason', 'sessionActive',
+                         'currentScreen', 'deviceModel', 'activePresetName',
+                         'lastActiveAt', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'userId', 'displayName', 'email', 'loginMode', 'role',
+                         'accessEnabled', 'blockedReason', 'sessionActive',
+                         'currentScreen', 'deviceModel', 'activePresetName',
+                         'lastActiveAt', 'createdAt', 'updatedAt'
+                       ]) &&
+                       isValidUserSession(incoming()) &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       incoming().lastActiveAt is timestamp && incoming().lastActiveAt <= request.time &&
+                       (
+                         (isAdmin() && incoming().userId == userId) ||
+                         (
+                           request.auth.uid == userId &&
+                           incoming().userId == request.auth.uid &&
+                           incoming().role == 'customer' &&
+                           incoming().loginMode == 'CUSTOMER' &&
+                           incoming().accessEnabled == true &&
+                           incoming().blockedReason == ''
+                         )
+                       );
+
+      allow update: if isSignedIn() &&
+                       isValidId(userId) &&
+                       isValidUserSession(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       incoming().lastActiveAt is timestamp && incoming().lastActiveAt <= request.time &&
+                       (
+                         (
+                           isAdmin() &&
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'displayName', 'email', 'loginMode', 'role',
+                             'accessEnabled', 'blockedReason', 'sessionActive',
+                             'currentScreen', 'deviceModel', 'activePresetName',
+                             'lastActiveAt', 'updatedAt'
+                           ])
+                         ) ||
+                         (
+                           request.auth.uid == userId &&
+                           incoming().role == existing().role &&
+                           incoming().loginMode == 'CUSTOMER' &&
+                           incoming().accessEnabled == existing().accessEnabled &&
+                           incoming().blockedReason == existing().blockedReason &&
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'displayName', 'email', 'loginMode', 'sessionActive',
+                             'currentScreen', 'deviceModel', 'activePresetName',
+                             'lastActiveAt', 'updatedAt'
+                           ])
+                         )
+                       );
+
+      allow delete: if isAdmin() && isValidId(userId) && request.auth.uid != userId;
+    }
+  }
+}

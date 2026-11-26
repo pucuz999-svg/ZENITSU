@@ -1,0 +1,38 @@
+<resources>
+    <string name="app_name">Zenitsu_2.0</string>
+    <string name="tab_boost">Boost Hub</string>
+    <string name="tab_devices">Devices</string>
+    <string name="tab_calibrator">Calibrator</string>
+    <string name="tab_guide">FPS Guide</string>
+    <string name="tab_admin">Admin</string>
+
+    <string name="hero_subtitle">THUNDER STORM PERFORMANCE &amp; HEADSHOT ENGINE</string>
+    <string name="boost_action_run">ACTIVATE PERFORMANCE BOOSTER</string>
+    <string name="boost_action_running">BOOSTING MEMORY &amp; CLEARING CACHE…</string>
+    <string name="boost_action_ready">PERFORMANCE BOOSTER ACTIVE</string>
+    <string name="launch_free_fire">LAUNCH FREE FIRE</string>
+    <string name="launch_free_fire_max">LAUNCH FF MAX</string>
+    <string name="free_fire_not_installed">Free Fire not detected on this device</string>
+
+    <string name="section_live_telemetry">LIVE HARDWARE TELEMETRY</string>
+    <string name="section_frame_pacing">FRAME PACING MONITOR</string>
+    <string name="section_recommended_fps">RECOMMENDED FPS &amp; GRAPHICS</string>
+    <string name="section_system_checks">SYSTEM READINESS CHECKS</string>
+
+    <string name="devices_search_hint">Search phone, tablet, iOS, or emulator…</string>
+    <string name="devices_detected_badge">THIS DEVICE</string>
+    <string name="copy_preset">Copy Preset</string>
+    <string name="copied_preset_toast">Sensitivity &amp; FPS preset copied to clipboard</string>
+    <string name="save_favorite">Save</string>
+    <string name="saved_favorite">Saved</string>
+
+    <string name="calibrator_title">TOUCH DRAG CALIBRATOR</string>
+    <string name="calibrator_subtitle">Swipe upward from the Fire Zone to the Target Head to measure your natural drag velocity, linearity, and touch polling rate.</string>
+    <string name="calibrator_reset">Reset Session</string>
+    <string name="calibrator_save_profile">Save My Calibrated Profile</string>
+    <string name="calibrator_saved_toast">Calibrated sensitivity profile saved</string>
+
+    <string name="guide_title">FPS &amp; PRO CONFIG LAB</string>
+    <string name="guide_dpi_calc">DPI &amp; SENSITIVITY SCALER</string>
+    <string name="guide_checklist">PRE-MATCH PRO CHECKLIST</string>
+</resources>
