@@ -19,14 +19,73 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SDK_DIR="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          if [ ! -d "$SDK_DIR" ] || [ ! -w "$SDK_DIR" ]; then
+            if [ -d "/usr/local/lib/android/sdk" ] && [ -w "/usr/local/lib/android/sdk" ]; then
+              SDK_DIR="/usr/local/lib/android/sdk"
+            else
+              SDK_DIR="$HOME/android-sdk"
+              mkdir -p "$SDK_DIR"
+            fi
+          fi
+
+          SDKMANAGER=""
+          for candidate in \
+            "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" \
+            "$SDK_DIR"/cmdline-tools/*/bin/sdkmanager; do
+            if [ -x "$candidate" ]; then
+              SDKMANAGER="$candidate"
+              break
+            fi
+          done
+
+          if [ -z "$SDKMANAGER" ]; then
+            echo "Installing Android command-line tools into $SDK_DIR..."
+            TMP_ZIP="$(mktemp /tmp/cmdline-tools-XXXXXX.zip)"
+            TMP_EXTRACT="$(mktemp -d)"
+            CMDLINE_URL="$(curl -fsSL https://developer.android.com/studio | grep -oE 'https://dl\.google\.com/android/repository/commandlinetools-linux-[0-9]+_latest\.zip' | head -n 1 || true)"
+            if [ -z "$CMDLINE_URL" ]; then
+              CMDLINE_URL="https://dl.google.com/android/repository/commandlinetools-linux-16111833_latest.zip"
+            fi
+            curl -fsSL "$CMDLINE_URL" -o "$TMP_ZIP"
+            rm -rf "$SDK_DIR/cmdline-tools/latest"
+            mkdir -p "$SDK_DIR/cmdline-tools/latest"
+            unzip -q "$TMP_ZIP" -d "$TMP_EXTRACT"
+            if [ -d "$TMP_EXTRACT/cmdline-tools" ]; then
+              cp -a "$TMP_EXTRACT/cmdline-tools/." "$SDK_DIR/cmdline-tools/latest/"
+            elif [ -d "$TMP_EXTRACT/tools" ]; then
+              cp -a "$TMP_EXTRACT/tools/." "$SDK_DIR/cmdline-tools/latest/"
+            fi
+            rm -rf "$TMP_ZIP" "$TMP_EXTRACT"
+            SDKMANAGER="$SDK_DIR/cmdline-tools/latest/bin/sdkmanager"
+            chmod +x "$SDKMANAGER"
+          fi
+
+          export ANDROID_HOME="$SDK_DIR"
+          export ANDROID_SDK_ROOT="$SDK_DIR"
+          echo "ANDROID_HOME=$SDK_DIR" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_DIR" >> "$GITHUB_ENV"
+          echo "$SDK_DIR/platform-tools" >> "$GITHUB_PATH"
+          echo "$(dirname "$SDKMANAGER")" >> "$GITHUB_PATH"
+
+          echo "Using sdkmanager: $SDKMANAGER (SDK root: $SDK_DIR)"
+          (yes || true) | "$SDKMANAGER" --sdk_root="$SDK_DIR" --licenses >/dev/null || true
+          "$SDKMANAGER" --sdk_root="$SDK_DIR" --install \
+            "platform-tools" \
+            "build-tools;36.0.0" \
+            "platforms;android-36.1" \
+            "platforms;android-36"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
